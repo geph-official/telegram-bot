@@ -11,19 +11,6 @@ pub struct TelegramBot {
     _task: Task<()>,
 }
 
-enum MessageType {
-    Private,
-    Group,
-}
-
-pub struct Message {
-    text: String,
-    from: String,
-    msg_type: MessageType,
-    chat_id: i64,
-    replying: bool,
-}
-
 pub struct Response {
     text: String,
     chat_id: i64,
@@ -37,22 +24,16 @@ impl TelegramBot {
         Fut: Future<Output = Vec<Response>> + Send + Sync + 'static,
     >(
         bot_token: &str,
-        bot_username: &str,
         msg_handler: Fun,
     ) -> Self {
         Self {
-            _task: smol::spawn(handle_telegram(
-                bot_token.to_owned(),
-                bot_username.to_owned(),
-                msg_handler,
-            )),
+            _task: smol::spawn(handle_telegram(bot_token.to_owned(), msg_handler)),
         }
     }
 }
 
 async fn handle_telegram<Fun: Fn(Value) -> Fut, Fut: Future<Output = Vec<Response>>>(
     bot_token: String,
-    bot_username: String,
     msg_handler: Fun,
 ) {
     let client = isahc::HttpClientBuilder::new()
