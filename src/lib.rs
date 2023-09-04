@@ -8,6 +8,8 @@ use smol_timeout::TimeoutExt;
 
 /// A client of the Telegram bot API.
 pub struct TelegramBot {
+    client: HttpClient,
+    bot_token: String,
     _task: Task<()>,
 }
 
@@ -21,26 +23,43 @@ impl TelegramBot {
     /// Creates a new TelegramBot.
     pub fn new<
         Fun: Fn(Value) -> Fut + Send + Sync + 'static,
-        Fut: Future<Output = Vec<Response>> + Send + Sync + 'static,
+        Fut: Future<Output = anyhow::Result<Vec<Response>>> + Send + Sync + 'static,
     >(
         bot_token: &str,
         msg_handler: Fun,
     ) -> Self {
+        let client = isahc::HttpClientBuilder::new()
+            .max_connections(4)
+            .build()
+            .unwrap();
         Self {
-            _task: smol::spawn(handle_telegram(bot_token.to_owned(), msg_handler)),
+            client: client.clone(),
+            bot_token: bot_token.into(),
+            _task: smol::spawn(handle_telegram(client, bot_token.to_owned(), msg_handler)),
         }
+    }
+
+    pub async fn send_msg(&self, to_send: Response) -> anyhow::Result<()> {
+        call_api(
+            &self.client,
+            &self.bot_token,
+            "sendMessage",
+            resp_json(&to_send),
+        )
+        .await
+        .context("cannot send reply back to telegram")?;
+        Ok(())
     }
 }
 
-async fn handle_telegram<Fun: Fn(Value) -> Fut, Fut: Future<Output = Vec<Response>>>(
+async fn handle_telegram<
+    Fun: Fn(Value) -> Fut,
+    Fut: Future<Output = anyhow::Result<Vec<Response>>>,
+>(
+    client: HttpClient,
     bot_token: String,
     msg_handler: Fun,
 ) {
-    let client = isahc::HttpClientBuilder::new()
-        .max_connections(4)
-        .build()
-        .unwrap();
-
     let mut counter = 0;
     loop {
         log::info!("getting updates at {counter}");
@@ -58,7 +77,7 @@ async fn handle_telegram<Fun: Fn(Value) -> Fut, Fut: Future<Output = Vec<Respons
                 // we only support text msgs atm
                 counter = counter.max(update["update_id"].as_i64().unwrap_or_default());
                 if !update["message"]["text"].is_null() {
-                    let responses = msg_handler(update).await;
+                    let responses = msg_handler(update).await?;
                     // send response to telegram
                     let json_resps: Vec<Value> =
                         responses.iter().map(|resp| resp_json(resp)).collect();
