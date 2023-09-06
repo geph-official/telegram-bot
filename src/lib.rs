@@ -12,11 +12,10 @@ pub struct TelegramBot {
     bot_token: String,
     _task: Task<()>,
 }
-
 pub struct Response {
-    text: String,
-    chat_id: i64,
-    reply_to_message_id: i64,
+    pub text: String,
+    pub chat_id: i64,
+    pub reply_to_message_id: Option<i64>,
 }
 
 impl TelegramBot {
@@ -132,9 +131,16 @@ async fn call_api(
 
 // puts message into correct json format for telegram bot api
 fn resp_json(resp: &Response) -> Value {
-    json!({
-        "chat_id": resp.chat_id,
-        "text": resp.text,
-        "reply_to_message_id": resp.reply_to_message_id,
-    })
+    if let Some(reply_to_msg_id) = resp.reply_to_message_id {
+        json!({
+            "chat_id": resp.chat_id,
+            "text": resp.text,
+            "reply_to_message_id": reply_to_msg_id,
+        })
+    } else {
+        json!({
+            "chat_id": resp.chat_id,
+            "text": resp.text,
+        })
+    }
 }
