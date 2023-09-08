@@ -21,8 +21,8 @@ pub struct Response {
 impl TelegramBot {
     /// Creates a new TelegramBot.
     pub fn new<
-        Fun: Fn(Value) -> Fut + Send + Sync + 'static,
-        Fut: Future<Output = anyhow::Result<Vec<Response>>> + Send + Sync + 'static,
+        Fun: FnMut(Value) -> Fut + Send + 'static,
+        Fut: Future<Output = anyhow::Result<Vec<Response>>> + Send + 'static,
     >(
         bot_token: &str,
         msg_handler: Fun,
@@ -52,12 +52,12 @@ impl TelegramBot {
 }
 
 async fn handle_telegram<
-    Fun: Fn(Value) -> Fut,
+    Fun: FnMut(Value) -> Fut + Send,
     Fut: Future<Output = anyhow::Result<Vec<Response>>>,
 >(
     client: HttpClient,
     bot_token: String,
-    msg_handler: Fun,
+    mut msg_handler: Fun,
 ) {
     let mut counter = 0;
     loop {
