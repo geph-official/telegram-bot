@@ -49,6 +49,10 @@ impl TelegramBot {
         .context("cannot send reply back to telegram")?;
         Ok(())
     }
+
+    pub async fn call_api(&self, method: &str, args: Value) -> anyhow::Result<Value> {
+        call_api(&self.client, &self.bot_token, method, args).await
+    }
 }
 
 async fn handle_telegram<
