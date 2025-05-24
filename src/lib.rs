@@ -34,7 +34,7 @@ impl TelegramBot {
         Self {
             client: client.clone(),
             bot_token: bot_token.into(),
-            _task: smol::spawn(handle_telegram(client, bot_token.to_owned(), msg_handler)),
+            _task: smolscale::spawn(handle_telegram(client, bot_token.to_owned(), msg_handler)),
         }
     }
 
